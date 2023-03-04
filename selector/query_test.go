@@ -70,6 +70,11 @@ func TestQueryString_Select(t *testing.T) {
 			QueryString:    "p, span",
 			ExpectedLength: 4,
 		},
+		{
+			Html:           "<div><div id=\"container\"><div><div><div class=\"container\"></div></div></div></div></div>",
+			QueryString:    "div#container div.container",
+			ExpectedLength: 1,
+		},
 	}
 	for _, test := range testcase {
 		t.Run(string(test.QueryString), func(t *testing.T) {

@@ -19,18 +19,31 @@ const (
 	bitSize int = 64
 )
 
+var (
+	deputyRegex *regexp.Regexp
+	realRegex   *regexp.Regexp
+)
+
+func init() {
+	deputyRegex = regexp.MustCompile(`(?P<Name>[\w\W\s]*) \((?P<PoliticalParty>[\w\W\s]*)-(?P<State>[\w\W\s]*)\)`)
+	realRegex = regexp.MustCompile(`R\$\s(?P<VALUE>[0-9.]*,[0-9]{2})`)
+}
+
 type CostDetail struct {
 	Description string  `json:"description"`
 	Value       float64 `json:"value"`
 }
 
 type Deputy struct {
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	PoliticalParty string       `json:"politicalParty"`
-	State          string       `json:"state"`
-	Cost           float64      `json:"cost"`
-	CostDetails    []CostDetail `json:"details"`
+	ID                        string       `json:"id"`
+	Name                      string       `json:"name"`
+	PoliticalParty            string       `json:"politicalParty"`
+	State                     string       `json:"state"`
+	Salary                    float64      `json:"salary"`
+	OfficeBudget              float64      `json:"officeBudget"`
+	ParliamentaryQuota        float64      `json:"parliamentaryQuota"`
+	ParliamentaryQuotaDetails []CostDetail `json:"parliamentaryQuotaDetails"`
+	Total                     float64      `json:"total"`
 }
 
 func main() {
@@ -38,7 +51,6 @@ func main() {
 }
 
 func getDeputiesCost() {
-	deputyRegex := regexp.MustCompile(`(?P<Name>[\w\W\s]*) \((?P<PoliticalParty>[\w\W\s]*)-(?P<State>[\w\W\s]*)\)`)
 	deputies := []*Deputy{}
 
 	attrValue := selector.Attribute("value")
@@ -113,6 +125,36 @@ func setDeputyDetails(deputy *Deputy) error {
 		return nil
 	})
 
+	c.OnNode("section#verba div.container div.gastos__resumo p.gastos__resumo-texto--destaque", func(node *html.Node) error {
+		data := node.FirstChild.Data
+
+		strs := realRegex.FindStringSubmatch(data)
+
+		officeBudget, err := parseFloat(strs[0])
+		if err != nil {
+			return err
+		}
+
+		deputy.OfficeBudget = officeBudget
+
+		return nil
+	})
+
+	c.OnNode("div.remuneracao-viagens div#remuneracao p.remuneracao-viagens__desc", func(node *html.Node) error {
+		data := node.FirstChild.Data
+
+		strs := realRegex.FindStringSubmatch(data)
+
+		salary, err := parseFloat(strs[0])
+		if err != nil {
+			return err
+		}
+
+		deputy.Salary = salary
+
+		return nil
+	})
+
 	c.OnNode("section#cota table#js-tipo-despesa.js-chart--pie tbody tr", func(node *html.Node) error {
 		query := selector.QueryString("td")
 		nodes := query.Select(node)
@@ -126,18 +168,18 @@ func setDeputyDetails(deputy *Deputy) error {
 			Description: nodes[0].FirstChild.Data,
 			Value:       value,
 		}
-		deputy.CostDetails = append(deputy.CostDetails, costDetails)
+		deputy.ParliamentaryQuotaDetails = append(deputy.ParliamentaryQuotaDetails, costDetails)
 
 		return nil
 	})
 
 	c.OnNode("div.gastos__resumo div.card-body section p.gastos__resumo-texto--destaque span", func(node *html.Node) error {
-		cost, err := parseFloat(node.FirstChild.Data)
+		parliamentaryQuota, err := parseFloat(node.FirstChild.Data)
 		if err != nil {
 			return fmt.Errorf("error.cost.total: %v", err)
 		}
 
-		deputy.Cost = cost
+		deputy.ParliamentaryQuota = parliamentaryQuota
 
 		return nil
 	})
@@ -145,6 +187,8 @@ func setDeputyDetails(deputy *Deputy) error {
 	if err := c.Visit(fmt.Sprintf("https://www.camara.leg.br/transparencia/gastos-parlamentares?legislatura=56&ano=2023&mes=&por=deputado&deputado=%s&uf=&partido=", deputy.ID)); err != nil {
 		return err
 	}
+
+	deputy.Total = deputy.Salary + deputy.OfficeBudget + deputy.ParliamentaryQuota
 
 	return nil
 }

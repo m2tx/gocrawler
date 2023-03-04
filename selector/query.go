@@ -145,23 +145,51 @@ func (query *selectorNode) isNode(n *html.Node) bool {
 		return false
 	}
 
+	if n.Data == "" {
+		return false
+	}
+
 	if n.Data != query.Data && query.Data != "" {
 		return false
 	}
 
-	if len(query.Class) > 0 || query.ID != "" {
+	isQueryClass := len(query.Class) > 0
+	isQueryID := query.ID != ""
+
+	if isQueryClass || isQueryID {
+		if len(n.Attr) == 0 {
+			return false
+		}
+
+		checkedClassAttr := false
+		checkedIDAttr := false
+
 		for _, a := range n.Attr {
 			switch a.Key {
 			case "class":
-				if !utils.SliceContainsSlice(strings.Split(a.Val, " "), query.Class) {
-					return false
+				if isQueryClass {
+					if !utils.SliceContainsSlice(strings.Split(a.Val, " "), query.Class) {
+						return false
+					}
+					checkedClassAttr = true
 				}
 			case "id":
-				if query.ID != "" && query.ID != a.Val {
-					return false
+				if isQueryID {
+					if query.ID != a.Val {
+						return false
+					}
+					checkedIDAttr = true
 				}
 			default:
 			}
+		}
+
+		if isQueryClass && !checkedClassAttr {
+			return false
+		}
+
+		if isQueryID && !checkedIDAttr {
+			return false
 		}
 	}
 
