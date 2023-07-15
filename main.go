@@ -51,28 +51,17 @@ type Deputy struct {
 }
 
 func main() {
-	getDeputiesCost()
-}
-
-func getDeputiesCost() {
 	ctx := context.Background()
 
-	workerDeputy := worker.NewWorkerPool[*Deputy](5, func(c context.Context, dep *Deputy) {
-		setDeputyDetails(c, dep)
-
-		bytes, err := json.MarshalIndent(dep, "", " ")
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		err = os.WriteFile(fmt.Sprintf("./tmp/deputy_%s.json", dep.ID), bytes, 0644)
-		if err != nil {
-			fmt.Println(err)
-		}
-	})
-
+	workerDeputy := worker.NewWorkerPool[*Deputy](5, setDeputyDetails)
 	workerDeputy.Start(ctx)
 
+	getDeputiesCost(ctx, workerDeputy)
+
+	workerDeputy.Wait()
+}
+
+func getDeputiesCost(ctx context.Context, worker *worker.WorkerPool[*Deputy]) {
 	attrValue := selector.Attribute("value")
 
 	c := collector.NewWithDefault()
@@ -90,7 +79,7 @@ func getDeputiesCost() {
 					State:          strs[3],
 				}
 
-				workerDeputy.Add(deputy)
+				worker.Add(deputy)
 			}
 		}
 
@@ -102,11 +91,9 @@ func getDeputiesCost() {
 		fmt.Println(err)
 		return
 	}
-
-	workerDeputy.Wait()
 }
 
-func setDeputyDetails(ctx context.Context, deputy *Deputy) error {
+func setDeputyDetails(ctx context.Context, deputy *Deputy) {
 	c := collector.NewWithDefault()
 
 	c.OnRequest(func(req *http.Request) error {
@@ -175,12 +162,20 @@ func setDeputyDetails(ctx context.Context, deputy *Deputy) error {
 	})
 
 	if err := c.Visit(fmt.Sprintf("https://www.camara.leg.br/transparencia/gastos-parlamentares?legislatura=%d&ano=%d&mes=&por=deputado&deputado=%s&uf=&partido=", legislatury, year, deputy.ID)); err != nil {
-		return err
+		return
 	}
 
 	deputy.Total = deputy.Salary + deputy.OfficeBudget + deputy.ParliamentaryQuota
 
-	return nil
+	bytes, err := json.MarshalIndent(deputy, "", " ")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = os.WriteFile(fmt.Sprintf("./tmp/deputy_%s.json", deputy.ID), bytes, 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func parseFloat(v string) (value float64, err error) {
