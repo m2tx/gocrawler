@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,15 +9,18 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/m2tx/gocrawler/collector"
 	"github.com/m2tx/gocrawler/selector"
+	"github.com/m2tx/gocrawler/worker"
 	"golang.org/x/net/html"
 )
 
 const (
 	bitSize int = 64
+
+	legislatury int = 56
+	year        int = 2023
 )
 
 var (
@@ -51,7 +55,23 @@ func main() {
 }
 
 func getDeputiesCost() {
-	deputies := []*Deputy{}
+	ctx := context.Background()
+
+	workerDeputy := worker.NewWorkerPool[*Deputy](5, func(c context.Context, dep *Deputy) {
+		setDeputyDetails(c, dep)
+
+		bytes, err := json.MarshalIndent(dep, "", " ")
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		err = os.WriteFile(fmt.Sprintf("./tmp/deputy_%s.json", dep.ID), bytes, 0644)
+		if err != nil {
+			fmt.Println(err)
+		}
+	})
+
+	workerDeputy.Start(ctx)
 
 	attrValue := selector.Attribute("value")
 
@@ -70,53 +90,23 @@ func getDeputiesCost() {
 					State:          strs[3],
 				}
 
-				deputies = append(deputies, deputy)
+				workerDeputy.Add(deputy)
 			}
 		}
 
 		return nil
 	})
 
-	err := c.Visit("https://www.camara.leg.br/transparencia/gastos-parlamentares?legislatura=56&ano=2023&mes=&por=deputado&deputado=&uf=&partido=")
+	err := c.Visit(fmt.Sprintf("https://www.camara.leg.br/transparencia/gastos-parlamentares?legislatura=%d&ano=%d&mes=&por=deputado&deputado=&uf=&partido=", legislatury, year))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	var wg sync.WaitGroup
-
-	n := 0
-
-	for _, deputy := range deputies {
-		wg.Add(1)
-
-		go func(d *Deputy) {
-			if err := setDeputyDetails(d); err != nil {
-				fmt.Println(err)
-			}
-			wg.Done()
-		}(deputy)
-
-		n++
-
-		if n > 20 {
-			wg.Wait()
-			n = 0
-		}
-	}
-
-	bytes, err := json.MarshalIndent(deputies, "", " ")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = os.WriteFile("./tmp/deputies.json", bytes, 0644)
-	if err != nil {
-		fmt.Println(err)
-	}
+	workerDeputy.Wait()
 }
 
-func setDeputyDetails(deputy *Deputy) error {
+func setDeputyDetails(ctx context.Context, deputy *Deputy) error {
 	c := collector.NewWithDefault()
 
 	c.OnRequest(func(req *http.Request) error {
@@ -184,7 +174,7 @@ func setDeputyDetails(deputy *Deputy) error {
 		return nil
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://www.camara.leg.br/transparencia/gastos-parlamentares?legislatura=56&ano=2023&mes=&por=deputado&deputado=%s&uf=&partido=", deputy.ID)); err != nil {
+	if err := c.Visit(fmt.Sprintf("https://www.camara.leg.br/transparencia/gastos-parlamentares?legislatura=%d&ano=%d&mes=&por=deputado&deputado=%s&uf=&partido=", legislatury, year, deputy.ID)); err != nil {
 		return err
 	}
 
