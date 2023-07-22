@@ -17,18 +17,34 @@ import (
 	"golang.org/x/net/html"
 )
 
+var (
+	workerDownload *worker.WorkerPool[string]
+	workerVisit    *worker.WorkerPool[string]
+
+	visited    = map[string]bool{}
+	downloaded = map[string]bool{}
+
+	attrSrc  = selector.Attribute("src")
+	attrHref = selector.Attribute("href")
+)
+
 func main() {
 	ctx := context.Background()
 
-	workerDownload := worker.NewWorkerPool[string](5, download)
+	workerDownload = worker.NewWorkerPool[string](5, download)
 	workerDownload.Start(ctx)
 
-	visit("http://www.globo.com", workerDownload)
+	workerVisit = worker.NewWorkerPool[string](10, visit)
+	workerVisit.Start(ctx)
 
+	workerVisit.Add("https://www.istockphoto.com")
+
+	workerVisit.Wait()
 	workerDownload.Wait()
 }
 
 func download(ctx context.Context, url string) {
+	fmt.Printf("download %s \n", url)
 	if strings.HasSuffix(url, ".html") {
 		return
 	}
@@ -71,26 +87,52 @@ func download(ctx context.Context, url string) {
 	}
 }
 
+func sanitizedURL(url string) string {
+	index := strings.IndexRune(url, '?')
+	if index > -1 {
+		return url[:index]
+	}
+	return url
+}
+
 func getFileNameByURL(url string) string {
+	url = sanitizedURL(url)
 	args := strings.Split(url, "/")
 	fileName := "./tmp/" + args[len(args)-1]
 	return fileName
 }
 
-func visit(url string, workerDownload *worker.WorkerPool[string]) {
-	attrSrc := selector.Attribute("src")
-
+func visit(ctx context.Context, url string) {
+	fmt.Printf("visit %s \n", url)
 	c := collector.NewWithDefault()
 
 	c.OnNode("img", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		src := attrSrc.Val(node)
+		if src == "" {
+			return nil
+		}
 
 		url, err := resp.Request.URL.Parse(src)
 		if err != nil {
 			return err
 		}
 
-		workerDownload.Add(url.String())
+		addDownload(url.String())
+		return nil
+	})
+
+	c.OnNode("a", func(req *http.Request, resp *http.Response, node *html.Node) error {
+		href := attrHref.Val(node)
+		if href == "" {
+			return nil
+		}
+
+		url, err := resp.Request.URL.Parse(href)
+		if err != nil {
+			return err
+		}
+
+		addVisit(url.String())
 		return nil
 	})
 
@@ -99,4 +141,24 @@ func visit(url string, workerDownload *worker.WorkerPool[string]) {
 		fmt.Println(err)
 		return
 	}
+}
+
+func addDownload(url string) {
+	if downloaded[url] {
+		return
+	}
+
+	downloaded[url] = true
+	fmt.Printf("add download %s \n", url)
+	workerDownload.Add(url)
+}
+
+func addVisit(url string) {
+	if visited[url] {
+		return
+	}
+
+	visited[url] = true
+	fmt.Printf("add visit %s \n", url)
+	workerVisit.Add(url)
 }
