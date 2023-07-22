@@ -29,6 +29,10 @@ func main() {
 }
 
 func download(ctx context.Context, url string) {
+	if strings.HasSuffix(url, ".html") {
+		return
+	}
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return
