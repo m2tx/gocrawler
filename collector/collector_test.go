@@ -19,13 +19,13 @@ func TestCollector(t *testing.T) {
 		return nil
 	})
 
-	collector.OnNode("p", func(node *html.Node) error {
+	collector.OnNode("p", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		assert.Equal(t, "p", node.Data)
 		assert.Equal(t, "TEXT", node.FirstChild.Data)
 		return nil
 	})
 
-	collector.OnNode("div div ok", func(node *html.Node) error {
+	collector.OnNode("div div ok", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		assert.Equal(t, "ok", node.Data)
 		assert.Equal(t, "OK", node.FirstChild.Data)
 		return nil

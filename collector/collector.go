@@ -8,7 +8,7 @@ import (
 )
 
 type OnRequest func(req *http.Request) error
-type OnNode func(node *html.Node) error
+type OnNode func(req *http.Request, resp *http.Response, node *html.Node) error
 
 type onNodeEntry struct {
 	Query  selector.QueryString
@@ -69,7 +69,7 @@ func (c *collector) Visit(url string) error {
 	for _, onNode := range c.onNodeListeners {
 		nodes := onNode.Query.Select(doc)
 		for _, node := range nodes {
-			if err := onNode.OnNode(node); err != nil {
+			if err := onNode.OnNode(req, resp, node); err != nil {
 				return err
 			}
 		}

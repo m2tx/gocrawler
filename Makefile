@@ -3,4 +3,4 @@ test:
 	go test ./... -cover -coverprofile=./coverage/coverage.out
 	go tool cover -html=./coverage/coverage.out
 run:
-	go run main.go
+	go run ./examples/deputy/main.go

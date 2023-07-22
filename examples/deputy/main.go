@@ -66,7 +66,7 @@ func getDeputiesCost(ctx context.Context, worker *worker.WorkerPool[*Deputy]) {
 
 	c := collector.NewWithDefault()
 
-	c.OnNode("select#deputado option", func(node *html.Node) error {
+	c.OnNode("select#deputado option", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		if node.FirstChild.Type == html.TextNode {
 			data := node.FirstChild.Data
 			if deputyRegex.Match([]byte(data)) {
@@ -102,7 +102,7 @@ func setDeputyDetails(ctx context.Context, deputy *Deputy) {
 		return nil
 	})
 
-	c.OnNode("section#verba div.container div.gastos__resumo p.gastos__resumo-texto--destaque", func(node *html.Node) error {
+	c.OnNode("section#verba div.container div.gastos__resumo p.gastos__resumo-texto--destaque", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		data := node.FirstChild.Data
 
 		strs := realRegex.FindStringSubmatch(data)
@@ -117,7 +117,7 @@ func setDeputyDetails(ctx context.Context, deputy *Deputy) {
 		return nil
 	})
 
-	c.OnNode("div.remuneracao-viagens div#remuneracao p.remuneracao-viagens__desc", func(node *html.Node) error {
+	c.OnNode("div.remuneracao-viagens div#remuneracao p.remuneracao-viagens__desc", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		data := node.FirstChild.Data
 
 		strs := realRegex.FindStringSubmatch(data)
@@ -132,7 +132,7 @@ func setDeputyDetails(ctx context.Context, deputy *Deputy) {
 		return nil
 	})
 
-	c.OnNode("section#cota table#js-tipo-despesa.js-chart--pie tbody tr", func(node *html.Node) error {
+	c.OnNode("section#cota table#js-tipo-despesa.js-chart--pie tbody tr", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		query := selector.QueryString("td")
 		nodes := query.Select(node)
 
@@ -150,7 +150,7 @@ func setDeputyDetails(ctx context.Context, deputy *Deputy) {
 		return nil
 	})
 
-	c.OnNode("div.gastos__resumo div.card-body section p.gastos__resumo-texto--destaque span", func(node *html.Node) error {
+	c.OnNode("div.gastos__resumo div.card-body section p.gastos__resumo-texto--destaque span", func(req *http.Request, resp *http.Response, node *html.Node) error {
 		parliamentaryQuota, err := parseFloat(node.FirstChild.Data)
 		if err != nil {
 			return fmt.Errorf("error.cost.total: %v", err)
