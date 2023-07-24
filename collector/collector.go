@@ -63,8 +63,8 @@ func (c *collector) Visit(url string) error {
 		return err
 	}
 
-	if resp.StatusCode == 400 {
-		return fmt.Errorf("status code %d for %s", 400, url)
+	if resp.StatusCode >= http.StatusBadRequest && resp.StatusCode < http.StatusInternalServerError {
+		return fmt.Errorf("status code %d for %s", resp.StatusCode, url)
 	}
 
 	doc, err := html.Parse(resp.Body)
