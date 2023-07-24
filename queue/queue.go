@@ -49,7 +49,7 @@ func (qt *QueueTimer[T]) Start(ctx context.Context) {
 				queue = make([]T, 0)
 			}
 		case <-ctx.Done():
-			close(qt.Queue)
+			qt.Close()
 			if len(queue) > 0 {
 				qt.TriggerFunc(ctx, queue)
 				queue = nil
@@ -61,4 +61,8 @@ func (qt *QueueTimer[T]) Start(ctx context.Context) {
 
 func (qt *QueueTimer[T]) Add(t T) {
 	qt.Queue <- t
+}
+
+func (qt *QueueTimer[T]) Close() {
+	close(qt.Queue)
 }

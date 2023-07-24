@@ -23,6 +23,7 @@ func TestWorkerPool(t *testing.T) {
 	}
 
 	pool.Wait()
+	pool.Close()
 
 	waitGroup.Wait()
 }

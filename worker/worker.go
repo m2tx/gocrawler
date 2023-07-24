@@ -50,7 +50,6 @@ func (wp *WorkerPool[T]) Add(t T) {
 
 func (wp *WorkerPool[T]) Wait() {
 	wp.WaitGroup.Wait()
-	close(wp.Tasks)
 }
 
 func (wp *WorkerPool[T]) Close() {
