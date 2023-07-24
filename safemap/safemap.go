@@ -7,6 +7,12 @@ type SafeMap[T comparable, D any] struct {
 	data map[T]D
 }
 
+func New[T comparable, D any]() *SafeMap[T, D] {
+	return &SafeMap[T, D]{
+		data: make(map[T]D),
+	}
+}
+
 func (s *SafeMap[T, D]) Set(key T, value D) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
