@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/m2tx/gocrawler/selector"
@@ -61,6 +62,11 @@ func (c *collector) Visit(url string) error {
 	if err != nil {
 		return err
 	}
+
+	if resp.StatusCode == 400 {
+		return fmt.Errorf("status code %d for %s", 400, url)
+	}
+
 	doc, err := html.Parse(resp.Body)
 	resp.Body.Close()
 	if err != nil {
