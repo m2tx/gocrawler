@@ -53,11 +53,13 @@ func (c *collector) Visit(url string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, onRequest := range c.onRequestListeners {
 		if err := onRequest(req); err != nil {
 			return err
 		}
 	}
+
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
@@ -72,6 +74,7 @@ func (c *collector) Visit(url string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, onNode := range c.onNodeListeners {
 		nodes := onNode.Query.Select(doc)
 		for _, node := range nodes {
@@ -80,6 +83,7 @@ func (c *collector) Visit(url string) error {
 			}
 		}
 	}
+
 	return nil
 }
 

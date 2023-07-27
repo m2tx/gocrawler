@@ -6,24 +6,24 @@ import (
 )
 
 type WorkerPool[T any] struct {
-	NumWorkers int
-	Tasks      chan T
-	WorkerFunc WorkerFunc[T]
-	WaitGroup  sync.WaitGroup
+	nWorkers   int
+	queue      chan T
+	workerFunc WorkerFunc[T]
+	waitGroup  sync.WaitGroup
 }
 
 type WorkerFunc[T any] func(ctx context.Context, t T)
 
-func NewWorkerPool[T any](numWorkers int, workerFunc WorkerFunc[T]) *WorkerPool[T] {
+func NewWorkerPool[T any](nWorkers int, workerFunc WorkerFunc[T]) *WorkerPool[T] {
 	return &WorkerPool[T]{
-		NumWorkers: numWorkers,
-		Tasks:      make(chan T),
-		WorkerFunc: workerFunc,
+		nWorkers:   nWorkers,
+		queue:      make(chan T),
+		workerFunc: workerFunc,
 	}
 }
 
 func (wp *WorkerPool[T]) Start(ctx context.Context) {
-	for i := 0; i < wp.NumWorkers; i++ {
+	for i := 0; i < wp.nWorkers; i++ {
 		go wp.worker(ctx)
 	}
 }
@@ -31,12 +31,12 @@ func (wp *WorkerPool[T]) Start(ctx context.Context) {
 func (wp *WorkerPool[T]) worker(ctx context.Context) {
 	for {
 		select {
-		case t, ok := <-wp.Tasks:
+		case t, ok := <-wp.queue:
 			if !ok {
 				return
 			}
-			wp.WorkerFunc(ctx, t)
-			wp.WaitGroup.Done()
+			wp.workerFunc(ctx, t)
+			wp.waitGroup.Done()
 		case <-ctx.Done():
 			return
 		}
@@ -44,14 +44,14 @@ func (wp *WorkerPool[T]) worker(ctx context.Context) {
 }
 
 func (wp *WorkerPool[T]) Add(t T) {
-	wp.WaitGroup.Add(1)
-	wp.Tasks <- t
+	wp.waitGroup.Add(1)
+	wp.queue <- t
 }
 
 func (wp *WorkerPool[T]) Wait() {
-	wp.WaitGroup.Wait()
+	wp.waitGroup.Wait()
 }
 
 func (wp *WorkerPool[T]) Close() {
-	close(wp.Tasks)
+	close(wp.queue)
 }

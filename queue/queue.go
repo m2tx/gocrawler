@@ -6,20 +6,20 @@ import (
 )
 
 type QueueTimer[T any] struct {
-	Queue       chan T
-	TriggerFunc TriggerFunc[[]T]
-	Size        int
-	Timeout     time.Duration
+	queue       chan T
+	triggerFunc TriggerFunc[[]T]
+	size        int
+	timeout     time.Duration
 }
 
 type TriggerFunc[T any] func(ctx context.Context, t T)
 
 func NewQueueTimer[T any](size int, timeout time.Duration, triggerFunc TriggerFunc[[]T]) *QueueTimer[T] {
 	return &QueueTimer[T]{
-		Queue:       make(chan T),
-		TriggerFunc: triggerFunc,
-		Size:        size,
-		Timeout:     timeout,
+		queue:       make(chan T),
+		triggerFunc: triggerFunc,
+		size:        size,
+		timeout:     timeout,
 	}
 }
 
@@ -28,10 +28,10 @@ func (qt *QueueTimer[T]) Start(ctx context.Context) {
 
 	for {
 		select {
-		case t, ok := <-qt.Queue:
+		case t, ok := <-qt.queue:
 			if !ok {
 				if len(queue) > 0 {
-					qt.TriggerFunc(ctx, queue)
+					qt.triggerFunc(ctx, queue)
 					queue = nil
 				}
 
@@ -39,19 +39,19 @@ func (qt *QueueTimer[T]) Start(ctx context.Context) {
 			}
 
 			queue = append(queue, t)
-			if len(queue) == qt.Size {
-				qt.TriggerFunc(ctx, queue)
+			if len(queue) == qt.size {
+				qt.triggerFunc(ctx, queue)
 				queue = make([]T, 0)
 			}
-		case <-time.After(qt.Timeout):
+		case <-time.After(qt.timeout):
 			if len(queue) > 0 {
-				qt.TriggerFunc(ctx, queue)
+				qt.triggerFunc(ctx, queue)
 				queue = make([]T, 0)
 			}
 		case <-ctx.Done():
 			qt.Close()
 			if len(queue) > 0 {
-				qt.TriggerFunc(ctx, queue)
+				qt.triggerFunc(ctx, queue)
 				queue = nil
 			}
 			return
@@ -60,9 +60,9 @@ func (qt *QueueTimer[T]) Start(ctx context.Context) {
 }
 
 func (qt *QueueTimer[T]) Add(t T) {
-	qt.Queue <- t
+	qt.queue <- t
 }
 
 func (qt *QueueTimer[T]) Close() {
-	close(qt.Queue)
+	close(qt.queue)
 }
