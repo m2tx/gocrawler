@@ -19,6 +19,12 @@ func (s *SafeMap[T, D]) Set(key T, value D) {
 	s.data[key] = value
 }
 
+func (s *SafeMap[T, D]) Change(key T, change func(D) D) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[key] = change(s.data[key])
+}
+
 func (s *SafeMap[T, D]) Get(key T) D {
 	s.mu.Lock()
 	defer s.mu.Unlock()
