@@ -61,6 +61,21 @@ func TestQueryString_Select(t *testing.T) {
 			ExpectedLength: 1,
 		},
 		{
+			Html:           "<p><span class=\"class-separator\">Text Span</span></p>",
+			QueryString:    "span.class-separator",
+			ExpectedLength: 1,
+		},
+		{
+			Html:           "<p><span class=\"class class-separator\">Text Span</span></p>",
+			QueryString:    "span.class.class-separator",
+			ExpectedLength: 1,
+		},
+		{
+			Html:           "<p><span><span class=\"class class-separator\">Text Span</span></span></p>",
+			QueryString:    "span span.class.class-separator",
+			ExpectedLength: 1,
+		},
+		{
 			Html:           "<p><span>Text Span</span></p>",
 			QueryString:    "p, span",
 			ExpectedLength: 2,
